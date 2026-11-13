@@ -1,0 +1,23 @@
+
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64">
+
+    <rect
+        width="64"
+        height="64"
+        rx="15"
+        fill="#080b16"
+    />
+
+    <text
+        x="32"
+        y="47"
+        font-size="43"
+        font-weight="bold"
+        font-family="Arial, sans-serif"
+        text-anchor="middle"
+        fill="#00d9ff">
+        U
+    </text>
+
+</svg>
