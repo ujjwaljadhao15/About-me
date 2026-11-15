@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Portfolio Admin | Ujjwal</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/">UJJWAL<span>.</span></a>
+      <span class="topbar-label">Portfolio Admin</span>
+    </header>
+
+    <section id="login-panel" class="panel login-panel">
+      <p class="eyebrow">PRIVATE ADMIN AREA</p>
+      <h1>Welcome back</h1>
+      <p class="muted">Sign in to manage your portfolio and read messages.</p>
+      <form id="login-form">
+        <label for="username">Username</label>
+        <input id="username" name="username" autocomplete="username" required>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="primary-button" type="submit">Sign in</button>
+        <p id="login-message" class="notice" role="status"></p>
+      </form>
+    </section>
+
+    <section id="dashboard" class="dashboard hidden">
+      <div class="dashboard-heading">
+        <div>
+          <p class="eyebrow">CONTROL PANEL</p>
+          <h1>Manage your portfolio</h1>
+          <p class="muted">Changes saved here update the public website.</p>
+        </div>
+        <button id="logout-button" class="secondary-button" type="button">Log out</button>
+      </div>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Website content</h2>
+            <p class="muted">Edit your introduction, About section and contact email.</p>
+          </div>
+          <span id="save-state" class="status-pill">Not saved</span>
+        </div>
+
+        <form id="content-form">
+          <div class="form-grid">
+            <div>
+              <label for="hero-name">Name shown in Home</label>
+              <input id="hero-name" name="heroName" maxlength="60" required>
+            </div>
+            <div>
+              <label for="contact-email">Public contact email</label>
+              <input id="contact-email" name="contactEmail" type="email" maxlength="254" required>
+            </div>
+          </div>
+
+          <label for="hero-description">Home introduction</label>
+          <textarea id="hero-description" name="heroDescription" rows="3" maxlength="500" required></textarea>
+
+          <label for="about-heading">About heading</label>
+          <input id="about-heading" name="aboutHeading" maxlength="100" required>
+
+          <label for="about-text">About description</label>
+          <textarea id="about-text" name="aboutText" rows="5" maxlength="2000" required></textarea>
+
+          <label for="projects-json">Projects (JSON)</label>
+          <textarea id="projects-json" name="projects" rows="16" spellcheck="false" required></textarea>
+          <p class="help-text">Each project needs title, description, icon, status and technologies. Maximum 12 projects.</p>
+
+          <button class="primary-button" type="submit">Save website changes</button>
+          <p id="content-message" class="notice" role="status"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Contact inbox</h2>
+            <p class="muted">Messages sent through your public contact form.</p>
+          </div>
+          <button id="refresh-messages" class="secondary-button" type="button">Refresh inbox</button>
+        </div>
+        <div id="messages-list" class="messages-list">
+          <p class="muted">Loading messages...</p>
+        </div>
+      </section>
+    </section>
+
+    <footer class="admin-footer">
+      <a href="/">← Back to public portfolio</a>
+      <span>Private dashboard · Keep your login details secret</span>
+    </footer>
+  </main>
+  <script src="/admin/admin.js" defer></script>
+</body>
+</html>
