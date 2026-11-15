@@ -6,39 +6,134 @@
    ========================================== */
 
 
-/* 1. CONTACT FORM */
+
+/* =====================================
+   EMAILJS CONTACT FORM
+   ===================================== */
+
+// Your EmailJS configuration
+
+const EMAILJS_SERVICE_ID = "service_8q1yczc";
+
+const EMAILJS_TEMPLATE_ID = "portfolio_contact";
+
+const EMAILJS_PUBLIC_KEY = "Q3-Dev1lXKXaFb7Fp";
+
+
+// Connect the contact form
 
 const contactForm = document.getElementById("contact-form");
+
 const formMessage = document.getElementById("form-message");
+
 
 if (contactForm && formMessage) {
 
-    contactForm.addEventListener("submit", function(event) {
+    // Initialize EmailJS
 
-        // Prevent page refresh
+    if (window.emailjs) {
+
+        emailjs.init({
+            publicKey: EMAILJS_PUBLIC_KEY
+        });
+
+    }
+
+
+    // Handle form submission
+
+    contactForm.addEventListener("submit", async function(event) {
+
+        // Stop page refresh
         event.preventDefault();
 
-        // Get user's name
-        const nameInput = document.getElementById("name");
-        const userName = nameInput.value.trim();
 
-        // Check name
-        if (!userName) {
-            formMessage.textContent = "Please enter your name.";
+        // Check EmailJS library
+
+        if (!window.emailjs) {
+
+            formMessage.textContent =
+                "Email service is unavailable. Please refresh the page.";
+
             return;
+
         }
 
-        // Show confirmation
-        formMessage.textContent =
-            "Thank you, " + userName +
-            "! Your form is working. Email delivery is not connected yet.";
 
-        // Clear form
-        contactForm.reset();
+        // Get submit button
+
+        const submitButton = contactForm.querySelector(
+            'button[type="submit"]'
+        );
+
+        const originalButtonText = submitButton.textContent;
+
+
+        // Show sending message
+
+        submitButton.disabled = true;
+
+        submitButton.textContent = "Sending...";
+
+        formMessage.textContent =
+            "Please wait. Sending your message...";
+
+
+        try {
+
+            // Send email through EmailJS
+
+            const response = await emailjs.sendForm(
+                EMAILJS_SERVICE_ID,
+                EMAILJS_TEMPLATE_ID,
+                contactForm
+            );
+
+
+            // Success response
+
+            console.log("Email sent successfully:", response);
+
+            formMessage.textContent =
+                "Message sent successfully! Thank you for contacting me. 😊";
+
+
+            // Clear form after successful sending
+
+            contactForm.reset();
+
+} catch (error) {
+
+    // Display actual EmailJS error
+
+    console.error("EMAILJS ERROR:", error);
+
+    console.error("STATUS:", error?.status);
+
+    console.error("ERROR MESSAGE:", error?.text || error?.message);
+
+    formMessage.textContent =
+        "Sending failed: " +
+        (error?.text || error?.message || "Check Chrome Console.");
+
+
+
+        } finally {
+
+            // Restore button
+
+            submitButton.disabled = false;
+
+            submitButton.textContent = originalButtonText;
+
+        }
 
     });
 
 }
+
+
+/* END OF EMAILJS CONTACT FORM */
 
 
 /* 2. MOBILE HAMBURGER MENU */
