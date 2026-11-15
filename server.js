@@ -33,6 +33,8 @@ if (process.env.SESSION_SECRET.length < 32) {
     process.exit(1);
 }
 
+let adminPasswordHash = null;
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
@@ -258,7 +260,7 @@ app.post("/api/admin/login", loginLimiter, sameOrigin, async (req, res, next) =>
 
         const usernameMatches = username === process.env.ADMIN_USERNAME;
         const passwordMatches = password.length > 0 &&
-            await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
+            await bcrypt.compare(password, adminPasswordHash);
 
         if (!usernameMatches || !passwordMatches) {
             return res.status(401).json({ error: "Invalid username or password." });
@@ -367,8 +369,7 @@ async function start() {
     await initializeDatabase();
 
     /* Compare logins against a bcrypt hash, never store password in a DB or file. */
-    const adminPasswordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
-    process.env.ADMIN_PASSWORD_HASH = adminPasswordHash;
+    adminPasswordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
 
     app.listen(PORT, "0.0.0.0", () => {
         console.log("Portfolio Node.js service listening on port " + PORT);
