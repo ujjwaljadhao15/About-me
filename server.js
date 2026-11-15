@@ -32,6 +32,7 @@ const DISK_PATH = "/var/data";
 const DATA_DIRECTORY = fs.existsSync(DISK_PATH) ? DISK_PATH : path.join(__dirname, "data");
 const MESSAGES_FILE = path.join(DATA_DIRECTORY, "messages.json");
 let messages = [];
+let saveQueue = Promise.resolve();
 
 /* Five-minute cooldown by client IP. This is enforced on the server. */
 const MESSAGE_COOLDOWN_MS = 5 * 60 * 1000;
@@ -88,11 +89,15 @@ async function loadMessages() {
     }
 }
 
-async function saveMessages() {
-    await fs.promises.mkdir(DATA_DIRECTORY, { recursive: true });
-    const temporaryFile = MESSAGES_FILE + ".tmp";
-    await fs.promises.writeFile(temporaryFile, JSON.stringify(messages, null, 2), "utf8");
-    await fs.promises.rename(temporaryFile, MESSAGES_FILE);
+function saveMessages() {
+    const snapshot = JSON.stringify(messages, null, 2);
+    saveQueue = saveQueue.then(async () => {
+        await fs.promises.mkdir(DATA_DIRECTORY, { recursive: true });
+        const temporaryFile = MESSAGES_FILE + ".tmp";
+        await fs.promises.writeFile(temporaryFile, snapshot, "utf8");
+        await fs.promises.rename(temporaryFile, MESSAGES_FILE);
+    });
+    return saveQueue;
 }
 
 function signSession(username) {
@@ -145,7 +150,13 @@ function readCookie(req, cookieName) {
         const index = item.indexOf("=");
         if (index < 0) continue;
         const name = item.slice(0, index).trim();
-        if (name === cookieName) return decodeURIComponent(item.slice(index + 1).trim());
+        if (name === cookieName) {
+            try {
+                return decodeURIComponent(item.slice(index + 1).trim());
+            } catch {
+                return null;
+            }
+        }
     }
     return null;
 }
