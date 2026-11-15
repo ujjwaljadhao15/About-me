@@ -1,190 +1,108 @@
 const $ = (selector) => document.querySelector(selector);
 const loginPanel = $("#login-panel");
-const dashboard = $("#dashboard");
+const inboxPanel = $("#inbox-panel");
 const loginForm = $("#login-form");
 const loginMessage = $("#login-message");
-const contentForm = $("#content-form");
-const contentMessage = $("#content-message");
-const saveState = $("#save-state");
 const messagesList = $("#messages-list");
+const inboxStatus = $("#inbox-status");
+const messageCount = $("#message-count");
 
 async function api(url, options = {}) {
-  const response = await fetch(url, {
-    credentials: "same-origin",
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      ...(options.body ? { "Content-Type": "application/json" } : {})
-    }
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Request failed.");
-  return data;
+    const response = await fetch(url, {
+        credentials: "same-origin",
+        ...options,
+        headers: { ...(options.headers || {}), ...(options.body ? { "Content-Type": "application/json" } : {}) }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Request failed.");
+    return result;
 }
 
-function showDashboard(isLoggedIn) {
-  loginPanel.classList.toggle("hidden", isLoggedIn);
-  dashboard.classList.toggle("hidden", !isLoggedIn);
+function showInbox(isLoggedIn) {
+    loginPanel.classList.toggle("hidden", isLoggedIn);
+    inboxPanel.classList.toggle("hidden", !isLoggedIn);
 }
 
-async function checkSession() {
-  try {
-    const data = await api("/api/admin/me");
-    showDashboard(data.authenticated);
-    if (data.authenticated) {
-      await loadContent();
-      await loadMessages();
+async function checkLogin() {
+    try {
+        const result = await api("/api/admin/me");
+        showInbox(result.authenticated);
+        if (result.authenticated) await loadMessages();
+    } catch {
+        showInbox(false);
     }
-  } catch {
-    showDashboard(false);
-  }
 }
 
 loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const button = loginForm.querySelector('button[type="submit"]');
-  button.disabled = true;
-  loginMessage.textContent = "Signing in...";
-  try {
-    const payload = {
-      username: $("#username").value.trim(),
-      password: $("#password").value
-    };
-    await api("/api/admin/login", { method: "POST", body: JSON.stringify(payload) });
-    loginForm.reset();
-    loginMessage.textContent = "";
-    showDashboard(true);
-    await loadContent();
-    await loadMessages();
-  } catch (error) {
-    loginMessage.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-});
-
-$("#logout-button").addEventListener("click", async () => {
-  try {
-    await api("/api/admin/logout", { method: "POST" });
-  } finally {
-    showDashboard(false);
-  }
-});
-
-async function loadContent() {
-  const data = await api("/api/admin/site-content");
-  const content = data.content;
-  $("#hero-name").value = content.heroName || "";
-  $("#hero-description").value = content.heroDescription || "";
-  $("#about-heading").value = content.aboutHeading || "";
-  $("#about-text").value = content.aboutText || "";
-  $("#contact-email").value = content.contactEmail || "";
-  $("#projects-json").value = JSON.stringify(content.projects || [], null, 2);
-  saveState.textContent = data.updatedAt ? "Last saved: " + new Date(data.updatedAt).toLocaleString() : "Loaded";
-}
-
-contentForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const button = contentForm.querySelector('button[type="submit"]');
-  button.disabled = true;
-  contentMessage.textContent = "Saving changes...";
-  saveState.textContent = "Saving...";
-  try {
-    let projects;
+    event.preventDefault();
+    const button = loginForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    loginMessage.textContent = "Checking login...";
     try {
-      projects = JSON.parse($("#projects-json").value);
-    } catch {
-      throw new Error("Projects JSON is invalid. Check its commas, quotes and brackets.");
+        await api("/api/admin/login", {
+            method: "POST",
+            body: JSON.stringify({ username: $("#username").value.trim(), password: $("#password").value })
+        });
+        loginForm.reset();
+        loginMessage.textContent = "";
+        showInbox(true);
+        await loadMessages();
+    } catch (error) {
+        loginMessage.textContent = error.message;
+    } finally {
+        button.disabled = false;
     }
-
-    const payload = {
-      heroName: $("#hero-name").value,
-      heroDescription: $("#hero-description").value,
-      aboutHeading: $("#about-heading").value,
-      aboutText: $("#about-text").value,
-      contactEmail: $("#contact-email").value,
-      projects
-    };
-
-    const result = await api("/api/admin/site-content", {
-      method: "PUT",
-      body: JSON.stringify(payload)
-    });
-    contentMessage.textContent = "Saved! Your public portfolio has been updated.";
-    saveState.textContent = "Saved: " + new Date(result.updatedAt).toLocaleString();
-  } catch (error) {
-    contentMessage.textContent = error.message;
-    saveState.textContent = "Not saved";
-  } finally {
-    button.disabled = false;
-  }
 });
 
 async function loadMessages() {
-  messagesList.replaceChildren();
-  const loading = document.createElement("p");
-  loading.className = "muted";
-  loading.textContent = "Loading messages...";
-  messagesList.appendChild(loading);
-
-  try {
-    const data = await api("/api/admin/messages");
     messagesList.replaceChildren();
-
-    if (!data.messages.length) {
-      const empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = "Your inbox is empty. New contact form submissions will appear here.";
-      messagesList.appendChild(empty);
-      return;
-    }
-
-    data.messages.forEach((message) => {
-      const card = document.createElement("article");
-      card.className = "message-card";
-      const head = document.createElement("div");
-      head.className = "message-head";
-      const titleWrap = document.createElement("div");
-
-      const title = document.createElement("h3");
-      title.textContent = message.subject;
-      const meta = document.createElement("p");
-      meta.className = "message-meta";
-      meta.textContent = message.name + " · " + message.email;
-      const date = document.createElement("p");
-      date.className = "message-date";
-      date.textContent = new Date(message.createdAt).toLocaleString();
-      titleWrap.append(title, meta, date);
-
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "delete-button";
-      remove.textContent = "Delete";
-      remove.addEventListener("click", async () => {
-        if (!window.confirm("Delete this message permanently?")) return;
-        try {
-          await api("/api/admin/messages/" + encodeURIComponent(message.id), { method: "DELETE" });
-          await loadMessages();
-        } catch (error) {
-          window.alert(error.message);
+    inboxStatus.textContent = "Loading messages...";
+    try {
+        const result = await api("/api/admin/messages");
+        const items = Array.isArray(result.messages) ? result.messages : [];
+        messageCount.textContent = items.length + (items.length === 1 ? " message" : " messages");
+        inboxStatus.textContent = "";
+        if (!items.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-state";
+            empty.textContent = "Your inbox is empty. New portfolio messages will appear here.";
+            messagesList.appendChild(empty);
+            return;
         }
-      });
-
-      head.append(titleWrap, remove);
-      const body = document.createElement("p");
-      body.className = "message-body";
-      body.textContent = message.message;
-      card.append(head, body);
-      messagesList.appendChild(card);
-    });
-  } catch (error) {
-    messagesList.replaceChildren();
-    const failed = document.createElement("p");
-    failed.className = "notice";
-    failed.textContent = error.message;
-    messagesList.appendChild(failed);
-  }
+        items.forEach((item) => {
+            const card = document.createElement("article");
+            card.className = "message-card";
+            const top = document.createElement("div");
+            top.className = "message-top";
+            const heading = document.createElement("div");
+            const subject = document.createElement("h2");
+            subject.textContent = item.subject || "(No subject)";
+            const sender = document.createElement("p");
+            sender.className = "message-sender";
+            sender.append(document.createTextNode((item.name || "Unknown sender") + " · "));
+            const email = document.createElement("a");
+            email.href = "mailto:" + item.email;
+            email.textContent = item.email;
+            sender.appendChild(email);
+            heading.append(subject, sender);
+            const date = document.createElement("p");
+            date.className = "message-date";
+            date.textContent = item.createdAt ? new Date(item.createdAt).toLocaleString() : "";
+            top.append(heading, date);
+            const body = document.createElement("p");
+            body.className = "message-body";
+            body.textContent = item.message || "";
+            card.append(top, body);
+            messagesList.appendChild(card);
+        });
+    } catch (error) {
+        inboxStatus.textContent = error.message;
+    }
 }
 
-$("#refresh-messages").addEventListener("click", loadMessages);
-checkSession();
+$("#refresh-button").addEventListener("click", loadMessages);
+$("#logout-button").addEventListener("click", async () => {
+    try { await api("/api/admin/logout", { method: "POST" }); }
+    finally { showInbox(false); }
+});
+checkLogin();
