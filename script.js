@@ -1,387 +1,230 @@
+/* UJJWAL'S PORTFOLIO — Node.js-powered frontend */
 
-/* ==========================================
-   UJJWAL'S PERSONAL PORTFOLIO
-   Complete JavaScript
-   Lessons 6, 7 and 8
-   ========================================== */
+const $ = (selector) => document.querySelector(selector);
 
+/* Load content saved in the admin dashboard. */
+async function loadPortfolioContent() {
+    try {
+        const response = await fetch("/api/site-content");
+        if (!response.ok) return;
 
+        const content = await response.json();
 
-/* =====================================
-   EMAILJS CONTACT FORM
-   ===================================== */
+        const heroName = $("#hero-name");
+        const heroDescription = $("#hero-description");
+        const aboutHeading = $("#about-heading");
+        const aboutDescription = $("#about-description");
+        const contactEmail = $("#contact-email");
 
-// Your EmailJS configuration
+        if (heroName && content.heroName) heroName.textContent = content.heroName;
+        if (heroDescription && content.heroDescription) heroDescription.textContent = content.heroDescription;
+        if (aboutHeading && content.aboutHeading) aboutHeading.textContent = content.aboutHeading;
+        if (aboutDescription && content.aboutText) aboutDescription.textContent = content.aboutText;
 
-const EMAILJS_SERVICE_ID = "service_8q1yczc";
+        if (contactEmail && content.contactEmail) {
+            contactEmail.textContent = content.contactEmail;
+            contactEmail.href = "mailto:" + content.contactEmail;
+        }
 
-const EMAILJS_TEMPLATE_ID = "portfolio_contact";
+        if (Array.isArray(content.projects)) renderProjects(content.projects);
+    } catch (error) {
+        console.warn("Could not load saved portfolio content:", error);
+    }
+}
 
-const EMAILJS_PUBLIC_KEY = "Q3-Dev1lXKXaFb7Fp";
+/* Render projects using textContent to avoid injecting admin HTML. */
+function renderProjects(projects) {
+    const grid = $("#project-grid");
+    if (!grid || !Array.isArray(projects)) return;
 
+    grid.replaceChildren();
 
-// Connect the contact form
+    projects.forEach((project, index) => {
+        const card = document.createElement("article");
+        card.className = "project-card" + (index === 0 ? " featured" : "");
 
-const contactForm = document.getElementById("contact-form");
+        const top = document.createElement("div");
+        top.className = "project-top";
 
-const formMessage = document.getElementById("form-message");
+        const number = document.createElement("span");
+        number.className = "project-number";
+        number.textContent = String(index + 1).padStart(2, "0");
 
+        const status = document.createElement("span");
+        status.className = "project-status";
+        const statusText = String(project.status || "Planned");
+        status.classList.add(statusText.toLowerCase().includes("progress") ? "ongoing" : "planned");
+        status.textContent = statusText;
+        top.append(number, status);
+
+        const icon = document.createElement("div");
+        icon.className = "project-icon";
+        icon.textContent = project.icon || "💻";
+
+        const title = document.createElement("h3");
+        title.textContent = project.title || "Untitled project";
+
+        const description = document.createElement("p");
+        description.textContent = project.description || "";
+
+        const tech = document.createElement("div");
+        tech.className = "project-tech";
+        (Array.isArray(project.technologies) ? project.technologies : []).forEach((item) => {
+            const tag = document.createElement("span");
+            tag.textContent = String(item);
+            tech.appendChild(tag);
+        });
+
+        card.append(top, icon, title, description, tech);
+        grid.appendChild(card);
+    });
+}
+
+/* Contact messages are saved on the Node server in the private admin inbox. */
+const contactForm = $("#contact-form");
+const formMessage = $("#form-message");
 
 if (contactForm && formMessage) {
-
-    // Initialize EmailJS
-
-    if (window.emailjs) {
-
-        emailjs.init({
-            publicKey: EMAILJS_PUBLIC_KEY
-        });
-
-    }
-
-
-    // Handle form submission
-
-    contactForm.addEventListener("submit", async function(event) {
-
-        // Stop page refresh
+    contactForm.addEventListener("submit", async (event) => {
         event.preventDefault();
 
-
-        // Check EmailJS library
-
-        if (!window.emailjs) {
-
-            formMessage.textContent =
-                "Email service is unavailable. Please refresh the page.";
-
-            return;
-
-        }
-
-
-        // Get submit button
-
-        const submitButton = contactForm.querySelector(
-            'button[type="submit"]'
-        );
-
-        const originalButtonText = submitButton.textContent;
-
-
-        // Show sending message
-
-        submitButton.disabled = true;
-
-        submitButton.textContent = "Sending...";
-
-        formMessage.textContent =
-            "Please wait. Sending your message...";
-
+        const button = contactForm.querySelector('button[type="submit"]');
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = "Sending...";
+        formMessage.textContent = "Please wait. Sending your message...";
 
         try {
+            const values = Object.fromEntries(new FormData(contactForm).entries());
+            const response = await fetch("/api/contact", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(values)
+            });
 
-            // Send email through EmailJS
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Your message could not be sent.");
 
-            const response = await emailjs.sendForm(
-                EMAILJS_SERVICE_ID,
-                EMAILJS_TEMPLATE_ID,
-                contactForm
-            );
-
-
-            // Success response
-
-            console.log("Email sent successfully:", response);
-
-            formMessage.textContent =
-                "Message sent successfully! Thank you for contacting me. 😊";
-
-
-            // Clear form after successful sending
-
+            formMessage.textContent = "Message received! Thank you for contacting me. 😊";
             contactForm.reset();
-
-} catch (error) {
-
-    // Display actual EmailJS error
-
-    console.error("EMAILJS ERROR:", error);
-
-    console.error("STATUS:", error?.status);
-
-    console.error("ERROR MESSAGE:", error?.text || error?.message);
-
-    formMessage.textContent =
-        "Sending failed: " +
-        (error?.text || error?.message || "Check Chrome Console.");
-
-
-
+        } catch (error) {
+            console.error("Contact form error:", error);
+            formMessage.textContent = error.message || "Sorry, something went wrong. Please try again.";
         } finally {
-
-            // Restore button
-
-            submitButton.disabled = false;
-
-            submitButton.textContent = originalButtonText;
-
+            button.disabled = false;
+            button.textContent = originalText;
         }
-
     });
-
 }
 
-
-/* END OF EMAILJS CONTACT FORM */
-
-
-/* 2. MOBILE HAMBURGER MENU */
-
-const menuToggle = document.getElementById("menu-toggle");
-const navLinks = document.getElementById("nav-links");
+/* Mobile navigation */
+const menuToggle = $("#menu-toggle");
+const navLinks = $("#nav-links");
 
 if (menuToggle && navLinks) {
-
-    // Open and close navigation
-    menuToggle.addEventListener("click", function() {
-
+    menuToggle.addEventListener("click", () => {
         navLinks.classList.toggle("show");
-
         const isOpen = navLinks.classList.contains("show");
-
         menuToggle.textContent = isOpen ? "✕" : "☰";
-
-        menuToggle.setAttribute(
-            "aria-expanded",
-            String(isOpen)
-        );
-
-        menuToggle.setAttribute(
-            "aria-label",
-            isOpen ? "Close navigation menu" : "Open navigation menu"
-        );
-
+        menuToggle.setAttribute("aria-expanded", String(isOpen));
+        menuToggle.setAttribute("aria-label", isOpen ? "Close navigation menu" : "Open navigation menu");
     });
 
-    // Close menu when a link is clicked
-    navLinks.querySelectorAll("a").forEach(function(link) {
-
-        link.addEventListener("click", function() {
-
+    navLinks.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => {
             navLinks.classList.remove("show");
-
             menuToggle.textContent = "☰";
-
             menuToggle.setAttribute("aria-expanded", "false");
-
-            menuToggle.setAttribute(
-                "aria-label",
-                "Open navigation menu"
-            );
-
+            menuToggle.setAttribute("aria-label", "Open navigation menu");
         });
-
     });
 
-    // Close mobile menu when switching to desktop
-    window.addEventListener("resize", function() {
-
+    window.addEventListener("resize", () => {
         if (window.innerWidth > 768) {
-
             navLinks.classList.remove("show");
-
             menuToggle.textContent = "☰";
-
             menuToggle.setAttribute("aria-expanded", "false");
-
         }
-
     });
-
 }
 
-
-/* 3. TYPING TEXT ANIMATION */
-
-const typingElement = document.getElementById("typing-text");
+/* Typing text animation */
+const typingElement = $("#typing-text");
 
 if (typingElement) {
-
-    const words = [
-        "AIML Student",
-        "Future Developer",
-        "Python Learner",
-        "AI Enthusiast"
-    ];
-
+    const words = ["AIML Student", "Future Developer", "Python Learner", "AI Enthusiast"];
     let wordIndex = 0;
     let charIndex = 0;
     let deleting = false;
 
     function typeEffect() {
-
-        const currentWord = words[wordIndex];
+        const word = words[wordIndex];
 
         if (!deleting) {
-
-            // Type one character
             charIndex++;
+            typingElement.textContent = word.substring(0, charIndex);
 
-            typingElement.textContent =
-                currentWord.substring(0, charIndex);
-
-            // Wait after completing the word
-            if (charIndex === currentWord.length) {
-
+            if (charIndex === word.length) {
                 deleting = true;
-
                 setTimeout(typeEffect, 1200);
-
                 return;
             }
-
         } else {
-
-            // Delete one character
             charIndex--;
+            typingElement.textContent = word.substring(0, charIndex);
 
-            typingElement.textContent =
-                currentWord.substring(0, charIndex);
-
-            // Move to the next word
             if (charIndex === 0) {
-
                 deleting = false;
-
                 wordIndex = (wordIndex + 1) % words.length;
-
             }
-
         }
 
         setTimeout(typeEffect, deleting ? 55 : 100);
-
     }
 
-    // Start animation
     typeEffect();
-
 }
 
-
-/* 4. BACK TO TOP BUTTON */
-
-const backToTop = document.getElementById("back-to-top");
+/* Back-to-top button */
+const backToTop = $("#back-to-top");
 
 if (backToTop) {
-
-    // Show button after scrolling
-    window.addEventListener("scroll", function() {
-
-        if (window.scrollY > 300) {
-
-            backToTop.classList.add("show");
-
-        } else {
-
-            backToTop.classList.remove("show");
-
-        }
-
+    window.addEventListener("scroll", () => {
+        backToTop.classList.toggle("show", window.scrollY > 300);
     });
 
-    // Scroll to top when clicked
-    backToTop.addEventListener("click", function() {
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-
+    backToTop.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
     });
-
 }
 
-
-/* 5. SCROLL REVEAL ANIMATION */
-
+/* Scroll reveal animation */
 const revealElements = document.querySelectorAll(
-
-    ".section-title, " +
-    ".about-text, " +
-    ".info-card, " +
-    ".skill-card, " +
-    ".project-card, " +
-    ".contact-info, " +
-    ".contact-form"
-
+    ".section-title, .about-text, .info-card, .skill-card, .project-card, .contact-info, .contact-form"
 );
 
 if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries, currentObserver) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                currentObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15 });
 
-    const revealObserver = new IntersectionObserver(
-
-        function(entries, observer) {
-
-            entries.forEach(function(entry) {
-
-                if (entry.isIntersecting) {
-
-                    // Make element visible
-                    entry.target.classList.add("visible");
-
-                    // Stop observing after appearance
-                    observer.unobserve(entry.target);
-
-                }
-
-            });
-
-        },
-
-        {
-            threshold: 0.15
-        }
-
-    );
-
-    // Apply animation to elements
-    revealElements.forEach(function(element) {
-
+    revealElements.forEach((element) => {
         element.classList.add("reveal");
-
-        revealObserver.observe(element);
-
+        observer.observe(element);
     });
-
 } else {
-
-    // Fallback for older browsers
-    revealElements.forEach(function(element) {
-
-        element.classList.add("visible");
-
-    });
-
+    revealElements.forEach((element) => element.classList.add("visible"));
 }
 
+/* Dynamic copyright year */
+const yearElement = $("#current-year");
+if (yearElement) yearElement.textContent = new Date().getFullYear();
 
-/* 6. DYNAMIC COPYRIGHT YEAR */
-
-const yearElement = document.getElementById("current-year");
-
-if (yearElement) {
-
-    yearElement.textContent = new Date().getFullYear();
-
-}
-
-
-/* 7. CONSOLE WELCOME MESSAGE */
-
-console.log("--------------------------------");
-console.log("Welcome to Ujjwal's Portfolio!");
-console.log("JavaScript loaded successfully.");
-console.log("All portfolio features initialized.");
-console.log("--------------------------------");
+/* Load the editable portfolio content. */
+loadPortfolioContent();
+console.log("Ujjwal's Node.js portfolio frontend loaded.");
