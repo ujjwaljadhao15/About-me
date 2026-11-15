@@ -1,101 +1,75 @@
-/* UJJWAL'S PORTFOLIO — Node.js-powered frontend */
+/* UJJWAL'S PORTFOLIO FRONTEND */
 
 const $ = (selector) => document.querySelector(selector);
 
-/* Load content saved in the admin dashboard. */
-async function loadPortfolioContent() {
-    try {
-        const response = await fetch("/api/site-content");
-        if (!response.ok) return;
+/* 1. CONTACT FORM + SERVER-ENFORCED FIVE-MINUTE IP TIMER */
 
-        const content = await response.json();
-
-        const heroName = $("#hero-name");
-        const heroDescription = $("#hero-description");
-        const aboutHeading = $("#about-heading");
-        const aboutDescription = $("#about-description");
-        const contactEmail = $("#contact-email");
-
-        if (heroName && content.heroName) heroName.textContent = content.heroName;
-        if (heroDescription && content.heroDescription) heroDescription.textContent = content.heroDescription;
-        if (aboutHeading && content.aboutHeading) aboutHeading.textContent = content.aboutHeading;
-        if (aboutDescription && content.aboutText) aboutDescription.textContent = content.aboutText;
-
-        if (contactEmail && content.contactEmail) {
-            contactEmail.textContent = content.contactEmail;
-            contactEmail.href = "mailto:" + content.contactEmail;
-        }
-
-        if (Array.isArray(content.projects)) renderProjects(content.projects);
-    } catch (error) {
-        console.warn("Could not load saved portfolio content:", error);
-    }
-}
-
-/* Render projects using textContent to avoid injecting admin HTML. */
-function renderProjects(projects) {
-    const grid = $("#project-grid");
-    if (!grid || !Array.isArray(projects)) return;
-
-    grid.replaceChildren();
-
-    projects.forEach((project, index) => {
-        const card = document.createElement("article");
-        card.className = "project-card" + (index === 0 ? " featured" : "");
-
-        const top = document.createElement("div");
-        top.className = "project-top";
-
-        const number = document.createElement("span");
-        number.className = "project-number";
-        number.textContent = String(index + 1).padStart(2, "0");
-
-        const status = document.createElement("span");
-        status.className = "project-status";
-        const statusText = String(project.status || "Planned");
-        status.classList.add(statusText.toLowerCase().includes("progress") ? "ongoing" : "planned");
-        status.textContent = statusText;
-        top.append(number, status);
-
-        const icon = document.createElement("div");
-        icon.className = "project-icon";
-        icon.textContent = project.icon || "💻";
-
-        const title = document.createElement("h3");
-        title.textContent = project.title || "Untitled project";
-
-        const description = document.createElement("p");
-        description.textContent = project.description || "";
-
-        const tech = document.createElement("div");
-        tech.className = "project-tech";
-        (Array.isArray(project.technologies) ? project.technologies : []).forEach((item) => {
-            const tag = document.createElement("span");
-            tag.textContent = String(item);
-            tech.appendChild(tag);
-        });
-
-        card.append(top, icon, title, description, tech);
-        grid.appendChild(card);
-    });
-}
-
-/* Contact messages are saved on the Node server in the private admin inbox. */
 const contactForm = $("#contact-form");
 const formMessage = $("#form-message");
+const cooldownTimer = $("#cooldown-timer");
+
+let cooldownInterval = null;
+
+function displayCooldown(seconds) {
+    const submitButton = contactForm?.querySelector('button[type="submit"]');
+    let remaining = Math.max(0, Number(seconds) || 0);
+
+    if (!submitButton || !cooldownTimer) return;
+
+    if (cooldownInterval) clearInterval(cooldownInterval);
+
+    function updateTimer() {
+        if (remaining <= 0) {
+            clearInterval(cooldownInterval);
+            cooldownInterval = null;
+            submitButton.disabled = false;
+            cooldownTimer.textContent = "";
+            return;
+        }
+
+        submitButton.disabled = true;
+        const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
+        const secs = String(remaining % 60).padStart(2, "0");
+        cooldownTimer.textContent = "You can send your next message in " + minutes + ":" + secs;
+        remaining -= 1;
+    }
+
+    updateTimer();
+    cooldownInterval = setInterval(updateTimer, 1000);
+}
+
+async function checkContactCooldown() {
+    if (!contactForm || !cooldownTimer) return;
+
+    try {
+        const response = await fetch("/api/contact/cooldown", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!data.allowed && data.remainingSeconds > 0) {
+            if (formMessage) formMessage.textContent = "A message was recently sent from this network.";
+            displayCooldown(data.remainingSeconds);
+        }
+    } catch (error) {
+        console.warn("Could not check contact message timer:", error);
+    }
+}
 
 if (contactForm && formMessage) {
     contactForm.addEventListener("submit", async (event) => {
         event.preventDefault();
 
-        const button = contactForm.querySelector('button[type="submit"]');
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = "Sending...";
-        formMessage.textContent = "Please wait. Sending your message...";
+        const submitButton = contactForm.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+
+        submitButton.disabled = true;
+        submitButton.textContent = "Sending...";
+        formMessage.textContent = "Sending your message...";
+        if (cooldownTimer) cooldownTimer.textContent = "";
 
         try {
             const values = Object.fromEntries(new FormData(contactForm).entries());
+
             const response = await fetch("/api/contact", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -103,21 +77,34 @@ if (contactForm && formMessage) {
             });
 
             const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Your message could not be sent.");
 
-            formMessage.textContent = "Message received! Thank you for contacting me. 😊";
+            if (response.status === 429) {
+                formMessage.textContent = result.error || "Please wait before sending another message.";
+                displayCooldown(result.remainingSeconds || 300);
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || "Your message could not be sent.");
+            }
+
             contactForm.reset();
+            submitButton.textContent = originalText;
+            formMessage.textContent = "Your message has been received. Thank you for contacting me! 😊";
+            displayCooldown(result.cooldownSeconds || 300);
         } catch (error) {
             console.error("Contact form error:", error);
-            formMessage.textContent = error.message || "Sorry, something went wrong. Please try again.";
-        } finally {
-            button.disabled = false;
-            button.textContent = originalText;
+            formMessage.textContent = error.message || "Something went wrong. Please try again.";
+            submitButton.disabled = false;
+            submitButton.textContent = originalText;
         }
     });
+
+    checkContactCooldown();
 }
 
-/* Mobile navigation */
+/* 2. MOBILE HAMBURGER MENU */
+
 const menuToggle = $("#menu-toggle");
 const navLinks = $("#nav-links");
 
@@ -148,7 +135,8 @@ if (menuToggle && navLinks) {
     });
 }
 
-/* Typing text animation */
+/* 3. TYPING TEXT ANIMATION */
+
 const typingElement = $("#typing-text");
 
 if (typingElement) {
@@ -185,7 +173,8 @@ if (typingElement) {
     typeEffect();
 }
 
-/* Back-to-top button */
+/* 4. BACK TO TOP */
+
 const backToTop = $("#back-to-top");
 
 if (backToTop) {
@@ -198,33 +187,33 @@ if (backToTop) {
     });
 }
 
-/* Scroll reveal animation */
+/* 5. SCROLL REVEAL */
+
 const revealElements = document.querySelectorAll(
     ".section-title, .about-text, .info-card, .skill-card, .project-card, .contact-info, .contact-form"
 );
 
 if ("IntersectionObserver" in window) {
-    const observer = new IntersectionObserver((entries, currentObserver) => {
+    const revealObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach((entry) => {
             if (entry.isIntersecting) {
                 entry.target.classList.add("visible");
-                currentObserver.unobserve(entry.target);
+                observer.unobserve(entry.target);
             }
         });
     }, { threshold: 0.15 });
 
     revealElements.forEach((element) => {
         element.classList.add("reveal");
-        observer.observe(element);
+        revealObserver.observe(element);
     });
 } else {
     revealElements.forEach((element) => element.classList.add("visible"));
 }
 
-/* Dynamic copyright year */
+/* 6. COPYRIGHT YEAR */
+
 const yearElement = $("#current-year");
 if (yearElement) yearElement.textContent = new Date().getFullYear();
 
-/* Load the editable portfolio content. */
-loadPortfolioContent();
-console.log("Ujjwal's Node.js portfolio frontend loaded.");
+console.log("Ujjwal's portfolio frontend ready.");
