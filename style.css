@@ -1112,3 +1112,16 @@ h1 span {
     }
 
 }
+
+
+/* CONTACT FORM IP COOLDOWN TIMER */
+#cooldown-timer {
+    color: #00d9ff;
+    font-size: 14px;
+    margin-top: 8px;
+    line-height: 1.5;
+}
+.contact-form button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
