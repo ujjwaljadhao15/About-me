@@ -46,3 +46,7 @@ When `RENDER_EXTERNAL_URL` exists, the app requests its own `/health` endpoint e
 3. Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in your local shell.
 4. Run `npm start`.
 5. Open `http://localhost:10000`.
+
+## Email notifications
+
+This inbox stores messages for you to read at `/admin`. It does not send a separate email notification to Gmail. You can add server-side email alerts later if you decide you need them.
