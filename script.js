@@ -79,6 +79,7 @@ if (contactForm && formMessage) {
             const result = await response.json();
 
             if (response.status === 429) {
+                button.textContent = originalText;
                 formMessage.textContent = result.error || "Please wait before sending another message.";
                 displayCooldown(result.remainingSeconds || 300);
                 return;
