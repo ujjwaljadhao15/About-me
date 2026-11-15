@@ -2,7 +2,7 @@
   "name": "ujjwal-about-me-node",
   "version": "1.0.0",
   "private": true,
-  "description": "Ujjwal Jadhao portfolio with Node.js admin dashboard",
+  "description": "Ujjwal Jadhao portfolio with private Node.js message inbox",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
