@@ -1,60 +1,48 @@
-# Ujjwal Jadhao Portfolio — Node.js + Admin
+# Ujjwal Jadhao Portfolio + Private Message Inbox
 
-This repository serves the existing portfolio through an Express web service and adds a protected admin dashboard.
+A simple Node.js/Express web service. The existing portfolio remains the public homepage. The only admin feature is a private inbox for messages submitted through the “Send Me a Message” form.
 
 ## Features
-
-- Existing portfolio homepage and styling
-- Node.js / Express server
-- Protected admin page at `/admin`
-- Admin login credentials read from Render environment variables
-- PostgreSQL-backed portfolio content editor
-- PostgreSQL-backed contact inbox
-- Rate-limited login and contact form
-- HTTP-only, same-site admin session cookie
-
-## Local setup
-
-1. Install Node.js 22 or newer.
-2. Run `npm install`.
-3. Create a PostgreSQL database.
-4. Copy `.env.example` to `.env` and fill in your local values.
-5. Run `npm start`.
-6. Open `http://localhost:10000` for the public website and `http://localhost:10000/admin` for the admin page.
+- Public portfolio served by Node.js
+- Private admin login at `/admin`
+- Admin username and password configured in Render Environment
+- Messages saved to a JSON file
+- Server-enforced limit: one accepted message per client IP every 5 minutes
+- Visible countdown timer on the contact form
+- Best-effort self-ping every 10 minutes using Render's automatically provided `RENDER_EXTERNAL_URL`
+- No PostgreSQL or external database
 
 ## Render deployment
+Create a **Web Service** from this repository and the `main` branch.
 
-Create a Render PostgreSQL database and a Node.js Web Service connected to this repository. Set the build command to `npm install` and the start command to `npm start`.
+- Runtime: Node
+- Build command: `npm install`
+- Start command: `npm start`
+- Root directory: leave blank
 
-In the Render Web Service Environment tab, set:
+In Render → your service → Environment, set only:
+- `ADMIN_USERNAME` — your private admin username
+- `ADMIN_PASSWORD` — a unique password with at least 12 characters
 
-- `NODE_ENV` = `production`
-- `DATABASE_URL` = the PostgreSQL database Internal Database URL
-- `DATABASE_SSL` = `false` when using the Internal Database URL
-- `ADMIN_USERNAME` = the admin username you choose
-- `ADMIN_PASSWORD` = a unique password of at least 12 characters
-- `SESSION_SECRET` = a random secret of at least 32 characters
+Render supplies `PORT` and `RENDER_EXTERNAL_URL` automatically. The app creates its own session-signing secret at startup.
 
-The server hashes the password in memory at startup. The password, session secret and database URL do not belong in GitHub files. Never commit your real `.env` file.
+## Admin inbox
+Open `https://YOUR-SERVICE.onrender.com/admin` and sign in with the username and password above.
 
-Generate a session secret locally with:
+## Storage limitation — read this before using Free
+Messages are stored in `data/messages.json`. The app automatically uses `/var/data/messages.json` if a persistent disk is mounted there.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-```
+Render Free web services have an ephemeral filesystem and cannot use persistent disks. Render can erase local files on spin-down, restart, or redeploy. Therefore messages may be lost on the Free plan. To keep messages reliably without PostgreSQL, use a paid Web Service and attach a persistent disk mounted at `/var/data`.
 
-Render supplies the `PORT` variable. The app listens on it and binds to `0.0.0.0`.
+## 5-minute IP timer
+The limit is checked by the Node server, not only by the browser. A successful message starts a 5-minute cooldown for the IP address that submitted it. The page displays a live countdown. The cooldown map is in memory and resets if the server restarts. Visitors behind the same public network may share an IP address and therefore share the timer.
 
-## Admin dashboard
+## Render self-ping
+When `RENDER_EXTERNAL_URL` exists, the app requests its own `/health` endpoint every 10 minutes. This is a best-effort workaround, not an official uptime guarantee. Render Free services are designed to spin down after 15 minutes without inbound traffic; a paid always-on instance is the reliable option. Self-ping does not make ephemeral files persistent.
 
-Visit `/admin`, then sign in using the `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment values. The dashboard edits the Home and About text, public contact email, and project cards. It also displays messages submitted through the public contact form.
-
-## Contact form behavior
-
-Contact submissions are stored in PostgreSQL and appear in the private Admin Inbox. This version does not send email notifications. SMTP notifications can be added later using server-side environment variables.
-
-## Notes
-
-- The old browser-side EmailJS form has been replaced by the Node.js contact endpoint.
-- Passwords and session secrets must never be committed to GitHub.
-- Render's web-service filesystem is not used for admin data; PostgreSQL persists edits and messages across redeploys.
+## Local development
+1. Install Node.js 22 or newer.
+2. Run `npm install`.
+3. Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in your local shell.
+4. Run `npm start`.
+5. Open `http://localhost:10000`.
